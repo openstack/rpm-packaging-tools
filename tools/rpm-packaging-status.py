@@ -25,14 +25,13 @@ import re
 import sys
 import yaml
 
-
 # do some project name corrections if needed
 projects_mapping = {
     "keystoneauth": "keystoneauth1"
 }
 
 
-V = namedtuple('V', ['release', 'pkg'])
+V = namedtuple('V', ['release', 'rpm_packaging_pkg'])
 
 
 def process_args():
@@ -56,10 +55,10 @@ def process_args():
 def find_highest_release_version(releases):
     """get a list of dicts with a version key and find the highest version
     using PEP440 to compare the different versions"""
-    return max(version.parse(r) for r in releases)
+    return max(version.parse(r['version']) for r in releases)
 
 
-def find_pkg_version(pkg_project_spec):
+def find_rpm_packaging_pkg_version(pkg_project_spec):
     """get a spec.j2 template and get the version"""
     if os.path.exists(pkg_project_spec):
         with open(pkg_project_spec) as f:
@@ -76,20 +75,20 @@ def find_pkg_version(pkg_project_spec):
 def _pretty_table(release, projects):
     from prettytable import PrettyTable
     tb = PrettyTable()
-    tb.field_names = ['name', 'release version (%s)' % release,
-                      'pkg version (%s)' % release, 'comment']
+    tb.field_names = ['name', 'release (%s)' % release,
+                      'rpm packaging (%s)' % release, 'comment']
     for p_name, x in projects.items():
-        if x.pkg == version.parse('0'):
+        if x.rpm_packaging_pkg == version.parse('0'):
             comment = 'needs packaging'
-        elif x.pkg < x.release:
+        elif x.rpm_packaging_pkg < x.release:
             comment = 'needs upgrade'
-        elif x.pkg == x.release:
+        elif x.rpm_packaging_pkg == x.release:
             comment = 'perfect'
-        elif x.pkg > x.release:
+        elif x.rpm_packaging_pkg > x.release:
             comment = 'needs downgrade'
         else:
             comment = ''
-        tb.add_row([p_name, x.release, x.pkg, comment])
+        tb.add_row([p_name, x.release, x.rpm_packaging_pkg, comment])
     return tb
 
 
@@ -143,13 +142,14 @@ def main():
             project_name_pkg = project_name
 
         # path to the corresponding .spec.j2 file
-        pkg_project_spec = os.path.join(args['rpm-packaging-git-dir'],
-                                        'openstack', project_name_pkg,
-                                        '%s.spec.j2' % project_name_pkg)
-        v_pkg = find_pkg_version(pkg_project_spec)
+        rpm_packaging_pkg_project_spec = os.path.join(
+            args['rpm-packaging-git-dir'],
+            'openstack', project_name_pkg,
+            '%s.spec.j2' % project_name_pkg)
+        v_rpm_packaging_pkg = find_rpm_packaging_pkg_version(rpm_packaging_pkg_project_spec)
 
         # add both versions to the project dict
-        projects[project_name] = V(v_release, v_pkg)
+        projects[project_name] = V(v_release, v_rpm_packaging_pkg)
 
     if args['format'] == 'text':
         output_text(args['release'], projects)
