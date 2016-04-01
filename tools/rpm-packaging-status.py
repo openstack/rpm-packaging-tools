@@ -44,8 +44,8 @@ def process_args():
                         help='Base directory of the openstack/rpm-packaging '
                         'git repo', default='rpm-packaging')
     parser.add_argument('release',
-                        help='name of the release. I.e. "liberty"',
-                        default='liberty')
+                        help='name of the release. I.e. "mitaka"',
+                        default='mitaka')
     parser.add_argument('--include-projects', nargs='*', metavar='project-name',
                         default=[], help='If non-empty, only the given '
                         'projects will be checked. default: %(default)s')
