@@ -46,6 +46,9 @@ def process_args():
     parser.add_argument('release',
                         help='name of the release. I.e. "liberty"',
                         default='liberty')
+    parser.add_argument('--include-projects', nargs='*', metavar='project-name',
+                        default=[], help='If non-empty, only the given '
+                        'projects will be checked. default: %(default)s')
     parser.add_argument('--format',
                         help='output format', choices=('text', 'html'),
                         default='text')
@@ -131,6 +134,10 @@ def main():
                             args['release'])
     for yaml_file in os.listdir(releases_yaml_dir):
         project_name = re.sub('.yaml$', '', yaml_file)
+        # skip projects if include list is given
+        if len(args['include_projects']) and \
+           project_name not in args['include_projects']:
+            continue
         with open(os.path.join(releases_yaml_dir, yaml_file)) as f:
             data = yaml.load(f.read())
             v_release = find_highest_release_version(data['releases'])
