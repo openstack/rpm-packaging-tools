@@ -172,7 +172,7 @@ def main():
     releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
                             args['release'])
     for yaml_file in os.listdir(releases_yaml_dir):
-        project_name = re.sub('.yaml$', '', yaml_file)
+        project_name = re.sub('\.ya?ml$', '', yaml_file)
         # skip projects if include list is given
         if len(args['include_projects']) and \
            project_name not in args['include_projects']:
