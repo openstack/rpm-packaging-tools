@@ -66,11 +66,39 @@ def find_highest_release_version(releases):
     return max(version.parse(r['version']) for r in releases)
 
 
+def _rpm_split_filename(filename):
+      """Taken from yum's rpmUtils.miscutils.py file
+      Pass in a standard style rpm fullname
+      Return a name, version, release, epoch, arch, e.g.::
+          foo-1.0-1.i386.rpm returns foo, 1.0, 1, i386
+          1:bar-9-123a.ia64.rpm returns bar, 9, 123a, 1, ia64
+      """
+      if filename[-4:] == '.rpm':
+          filename = filename[:-4]
+
+      archIndex = filename.rfind('.')
+      arch = filename[archIndex+1:]
+
+      relIndex = filename[:archIndex].rfind('-')
+      rel = filename[relIndex+1:archIndex]
+
+      verIndex = filename[:relIndex].rfind('-')
+      ver = filename[verIndex+1:relIndex]
+
+      epochIndex = filename.find(':')
+      if epochIndex == -1:
+          epoch = ''
+      else:
+          epoch = filename[:epochIndex]
+
+      name = filename[epochIndex + 1:verIndex]
+      return name, ver, rel, epoch, arch
+
+
 def find_openbuildservice_pkg_version(published_xml, pkg_name):
     """find the version in the openbuildservice published xml for the given
     pkg name"""
     import pymod2pkg
-    from rpmUtils.miscutils import splitFilename
     import xml.etree.ElementTree as ET
 
     if published_xml and os.path.exists(published_xml):
@@ -82,7 +110,7 @@ def find_openbuildservice_pkg_version(published_xml, pkg_name):
             if not child.attrib['name'].startswith('_') and \
                child.attrib['name'].endswith('.rpm') and not \
                child.attrib['name'].endswith('.src.rpm'):
-                (name, ver, release, epoch, arch) = splitFilename(
+                (name, ver, release, epoch, arch) = _rpm_split_filename(
                 child.attrib['name'])
                 if name == distro_pkg_name:
                     return version.parse(ver)
