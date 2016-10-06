@@ -28,7 +28,9 @@ import yaml
 
 # do some project name corrections if needed
 projects_mapping = {
-    "keystoneauth": "keystoneauth1"
+    "glance-store": "glance_store",
+    "keystoneauth": "keystoneauth1",
+    "python-aodhclient": "aodhclient"
 }
 
 
