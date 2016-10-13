@@ -21,6 +21,7 @@ import argparse
 from collections import namedtuple
 import os
 from packaging import version
+from packaging.requirements import Requirement
 import re
 import sys
 import yaml
@@ -34,7 +35,7 @@ projects_mapping = {
 }
 
 
-V = namedtuple('V', ['release', 'rpm_packaging_pkg',
+V = namedtuple('V', ['release', 'upper_constraints', 'rpm_packaging_pkg',
                      'obs_published'])
 
 
@@ -47,6 +48,9 @@ def process_args():
     parser.add_argument('rpm-packaging-git-dir',
                         help='Base directory of the openstack/rpm-packaging '
                         'git repo', default='rpm-packaging')
+    parser.add_argument('requirements-git-dir',
+                        help='Base directory of the openstack/requirements '
+                        'git repo', default='requirements')
     parser.add_argument('--obs-published-xml',
                         help='path to a published xml file from the '
                         'openbuildservice')
@@ -136,7 +140,9 @@ def find_rpm_packaging_pkg_version(pkg_project_spec):
 def _pretty_table(release, projects, include_obs):
     from prettytable import PrettyTable
     tb = PrettyTable()
-    fn = ['name', 'release (%s)' % release,
+    fn = ['name',
+          'release (%s)' % release,
+          'u-c (%s)' % release,
           'rpm packaging (%s)' % release]
     if include_obs:
         fn += ['obs']
@@ -149,12 +155,14 @@ def _pretty_table(release, projects, include_obs):
         elif x.rpm_packaging_pkg < x.release:
             comment = 'needs upgrade'
         elif x.rpm_packaging_pkg == x.release:
+            if x.release > x.upper_constraints:
+                comment = 'needs downgrade (u-c)'
             comment = 'perfect'
         elif x.rpm_packaging_pkg > x.release:
             comment = 'needs downgrade'
         else:
             comment = ''
-        row = [p_name, x.release, x.rpm_packaging_pkg]
+        row = [p_name, x.release, x.upper_constraints, x.rpm_packaging_pkg]
         if include_obs:
             row += [x.obs_published]
         row += [comment]
@@ -186,17 +194,34 @@ def output_html(release, projects, include_obs):
             t.attrib['style'] = 'background-color:yellow'
         elif t.text_content() == 'needs upgrade':
             t.attrib['style'] = 'background-color:LightYellow'
-        elif t.text_content() == 'needs downgrade':
+        elif t.text_content() == ('needs downgrade' or 'needs downgrade (uc)'):
             t.attrib['style'] = 'background-color:red'
         elif t.text_content() == 'perfect':
             t.attrib['style'] = 'background-color:green'
     print(html.tostring(tree))
 
 
+def read_upper_constraints(filename):
+    uc = dict()
+    with open(filename) as f:
+        for l in f.readlines():
+            # ignore markers for now
+            l = l.split(';')[0]
+            r = Requirement(l)
+            for s in r.specifier:
+                uc[r.name] = s.version
+                # there is only a single version in upper constraints
+                break
+    return uc
+
+
 def main():
     args = process_args()
 
     projects = {}
+
+    upper_constraints = read_upper_constraints(
+        os.path.join(args['requirements-git-dir'], 'upper-constraints.txt'))
 
     # directory which contains all yaml files from the openstack/release git dir
     releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
@@ -217,6 +242,12 @@ def main():
         else:
             project_name_pkg = project_name
 
+        # get version from upper-constraints.txt
+        if project_name in upper_constraints:
+            v_upper_constraints = upper_constraints[project_name]
+        else:
+            v_upper_constraints = '-'
+
         # path to the corresponding .spec.j2 file
         rpm_packaging_pkg_project_spec = os.path.join(
             args['rpm-packaging-git-dir'],
@@ -230,6 +261,7 @@ def main():
 
         # add both versions to the project dict
         projects[project_name] = V(v_release,
+                                   v_upper_constraints,
                                    v_rpm_packaging_pkg,
                                    v_obs_published)
 
