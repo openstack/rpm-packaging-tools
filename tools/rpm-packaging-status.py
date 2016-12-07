@@ -275,6 +275,9 @@ def main():
             continue
         with open(os.path.join(releases_yaml_dir, yaml_file)) as f:
             data = yaml.load(f.read())
+            if 'releases' not in data:
+                # there might be yaml files without any releases
+                continue
             v_release = find_highest_release_version(data['releases'])
 
         # do some mapping if pkg name is different to the name from release repo
