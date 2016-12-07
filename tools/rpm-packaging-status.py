@@ -23,9 +23,16 @@ import os
 from packaging import version
 from packaging.requirements import Requirement
 import re
+import requests
 import sys
 import yaml
+import json
 
+# the current 'in development' release
+CURRENT_MASTER = 'ocata'
+
+# the host where to query for open reviews
+GERRIT_HOST = 'https://review.openstack.org'
 
 # do some project name corrections if needed
 projects_mapping = {
@@ -36,7 +43,7 @@ projects_mapping = {
 
 
 V = namedtuple('V', ['release', 'upper_constraints', 'rpm_packaging_pkg',
-                     'obs_published'])
+                     'reviews', 'obs_published'])
 
 
 def process_args():
@@ -143,7 +150,8 @@ def _pretty_table(release, projects, include_obs):
     fn = ['name',
           'release (%s)' % release,
           'u-c (%s)' % release,
-          'rpm packaging (%s)' % release]
+          'rpm packaging (%s)' % release,
+          'reviews']
     if include_obs:
         fn += ['obs']
     fn += ['comment']
@@ -162,7 +170,8 @@ def _pretty_table(release, projects, include_obs):
             comment = 'needs downgrade'
         else:
             comment = ''
-        row = [p_name, x.release, x.upper_constraints, x.rpm_packaging_pkg]
+        row = [p_name, x.release, x.upper_constraints, x.rpm_packaging_pkg,
+               x.reviews]
         if include_obs:
             row += [x.obs_published]
         row += [comment]
@@ -215,6 +224,35 @@ def read_upper_constraints(filename):
     return uc
 
 
+def _gerrit_open_reviews_per_file(release):
+    """Returns a dict with filename as key and a list of review numbers
+    where this file is modified as value"""
+    # NOTE: gerrit has a strange first line in the returned data
+    gerrit_strip = ')]}\'\n'
+    data = dict()
+
+    if release == CURRENT_MASTER:
+        branch = 'master'
+    else:
+        branch = 'stable/%s' % release
+
+    url_reviews = GERRIT_HOST + '/changes/?q=status:open+project:openstack/rpm-packaging+branch:%s' % branch
+    res_reviews = requests.get(url_reviews)
+    if res_reviews.status_code == 200:
+        data_reviews = json.loads(res_reviews.text.lstrip(gerrit_strip))
+        for review in data_reviews:
+            url_files = GERRIT_HOST + '/changes/%s/revisions/current/files/' % review['change_id']
+            res_files = requests.get(url_files)
+            if res_files.status_code == 200:
+                data_files = json.loads(res_files.text.lstrip(gerrit_strip))
+                for f in data_files.keys():
+                    # extract project name
+                    if f.startswith('openstack/') and f.endswith('spec.j2'):
+                        f = f.split('/')[1]
+                        data.setdefault(f, []).append(review['_number'])
+    return data
+
+
 def main():
     args = process_args()
 
@@ -222,6 +260,9 @@ def main():
 
     upper_constraints = read_upper_constraints(
         os.path.join(args['requirements-git-dir'], 'upper-constraints.txt'))
+
+    # open reviews for the given release
+    open_reviews = _gerrit_open_reviews_per_file(args['release'])
 
     # directory which contains all yaml files from the openstack/release git dir
     releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
@@ -259,10 +300,17 @@ def main():
         v_obs_published = find_openbuildservice_pkg_version(
             args['obs_published_xml'], project_name)
 
+        # reviews for the given project
+        if project_name in open_reviews:
+            project_reviews = open_reviews[project_name]
+        else:
+            project_reviews = []
+
         # add both versions to the project dict
         projects[project_name] = V(v_release,
                                    v_upper_constraints,
                                    v_rpm_packaging_pkg,
+                                   project_reviews,
                                    v_obs_published)
 
     include_obs = args['obs_published_xml']
