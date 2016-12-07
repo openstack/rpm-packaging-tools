@@ -64,8 +64,9 @@ def process_args():
     parser.add_argument('release',
                         help='name of the release. I.e. "mitaka"',
                         default='mitaka')
-    parser.add_argument('--include-projects', nargs='*', metavar='project-name',
-                        default=[], help='If non-empty, only the given '
+    parser.add_argument('--include-projects', nargs='*',
+                        metavar='project-name', default=[],
+                        help='If non-empty, only the given '
                         'projects will be checked. default: %(default)s')
     parser.add_argument('--format',
                         help='output format', choices=('text', 'html'),
@@ -80,32 +81,32 @@ def find_highest_release_version(releases):
 
 
 def _rpm_split_filename(filename):
-      """Taken from yum's rpmUtils.miscutils.py file
-      Pass in a standard style rpm fullname
-      Return a name, version, release, epoch, arch, e.g.::
-          foo-1.0-1.i386.rpm returns foo, 1.0, 1, i386
-          1:bar-9-123a.ia64.rpm returns bar, 9, 123a, 1, ia64
-      """
-      if filename[-4:] == '.rpm':
-          filename = filename[:-4]
+    """Taken from yum's rpmUtils.miscutils.py file
+    Pass in a standard style rpm fullname
+    Return a name, version, release, epoch, arch, e.g.::
+    foo-1.0-1.i386.rpm returns foo, 1.0, 1, i386
+    1:bar-9-123a.ia64.rpm returns bar, 9, 123a, 1, ia64
+    """
+    if filename[-4:] == '.rpm':
+        filename = filename[:-4]
 
-      archIndex = filename.rfind('.')
-      arch = filename[archIndex+1:]
+    archIndex = filename.rfind('.')
+    arch = filename[archIndex+1:]
 
-      relIndex = filename[:archIndex].rfind('-')
-      rel = filename[relIndex+1:archIndex]
+    relIndex = filename[:archIndex].rfind('-')
+    rel = filename[relIndex+1:archIndex]
 
-      verIndex = filename[:relIndex].rfind('-')
-      ver = filename[verIndex+1:relIndex]
+    verIndex = filename[:relIndex].rfind('-')
+    ver = filename[verIndex+1:relIndex]
 
-      epochIndex = filename.find(':')
-      if epochIndex == -1:
-          epoch = ''
-      else:
-          epoch = filename[:epochIndex]
+    epochIndex = filename.find(':')
+    if epochIndex == -1:
+        epoch = ''
+    else:
+        epoch = filename[:epochIndex]
 
-      name = filename[epochIndex + 1:verIndex]
-      return name, ver, rel, epoch, arch
+    name = filename[epochIndex + 1:verIndex]
+    return name, ver, rel, epoch, arch
 
 
 def find_openbuildservice_pkg_version(published_xml, pkg_name):
@@ -124,7 +125,7 @@ def find_openbuildservice_pkg_version(published_xml, pkg_name):
                child.attrib['name'].endswith('.rpm') and not \
                child.attrib['name'].endswith('.src.rpm'):
                 (name, ver, release, epoch, arch) = _rpm_split_filename(
-                child.attrib['name'])
+                    child.attrib['name'])
                 if name == distro_pkg_name:
                     return version.parse(ver)
     return version.parse('0')
@@ -236,12 +237,14 @@ def _gerrit_open_reviews_per_file(release):
     else:
         branch = 'stable/%s' % release
 
-    url_reviews = GERRIT_HOST + '/changes/?q=status:open+project:openstack/rpm-packaging+branch:%s' % branch
+    url_reviews = GERRIT_HOST + '/changes/?q=status:open+project:openstack/' \
+                                'rpm-packaging+branch:%s' % branch
     res_reviews = requests.get(url_reviews)
     if res_reviews.status_code == 200:
         data_reviews = json.loads(res_reviews.text.lstrip(gerrit_strip))
         for review in data_reviews:
-            url_files = GERRIT_HOST + '/changes/%s/revisions/current/files/' % review['change_id']
+            url_files = GERRIT_HOST + '/changes/%s/revisions/current/files/' \
+                        % review['change_id']
             res_files = requests.get(url_files)
             if res_files.status_code == 200:
                 data_files = json.loads(res_files.text.lstrip(gerrit_strip))
@@ -264,9 +267,10 @@ def main():
     # open reviews for the given release
     open_reviews = _gerrit_open_reviews_per_file(args['release'])
 
-    # directory which contains all yaml files from the openstack/release git dir
+    # directory which contains all yaml files from the openstack/release
+    # git dir
     releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
-                            args['release'])
+                                     args['release'])
     for yaml_file in os.listdir(releases_yaml_dir):
         project_name = re.sub('\.ya?ml$', '', yaml_file)
         # skip projects if include list is given
@@ -277,7 +281,8 @@ def main():
             data = yaml.load(f.read())
             v_release = find_highest_release_version(data['releases'])
 
-        # do some mapping if pkg name is different to the name from release repo
+        # do some mapping if pkg name is different to the name from
+        # release repo
         if project_name in projects_mapping:
             project_name_pkg = projects_mapping[project_name]
         else:
@@ -294,7 +299,8 @@ def main():
             args['rpm-packaging-git-dir'],
             'openstack', project_name_pkg,
             '%s.spec.j2' % project_name_pkg)
-        v_rpm_packaging_pkg = find_rpm_packaging_pkg_version(rpm_packaging_pkg_project_spec)
+        v_rpm_packaging_pkg = find_rpm_packaging_pkg_version(
+            rpm_packaging_pkg_project_spec)
 
         # version from build service published file
         v_obs_published = find_openbuildservice_pkg_version(
