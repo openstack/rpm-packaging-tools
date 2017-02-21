@@ -167,13 +167,13 @@ def _pretty_table(release, projects, include_obs):
 
     for p_name, x in projects.items():
         if x.rpm_packaging_pkg == version.parse('0'):
-            comment = 'needs packaging'
+            comment = 'unpackaged'
         elif x.rpm_packaging_pkg < x.release:
             comment = 'needs upgrade'
         elif x.rpm_packaging_pkg == x.release:
             if x.release > x.upper_constraints:
                 comment = 'needs downgrade (u-c)'
-            comment = 'perfect'
+            comment = 'ok'
         elif x.rpm_packaging_pkg > x.release:
             comment = 'needs downgrade'
         else:
@@ -191,14 +191,14 @@ def _pretty_table(release, projects, include_obs):
 
 def output_text(release, projects, include_obs):
     tb = _pretty_table(release, projects, include_obs)
-    print(tb.get_string(sortby='name'))
+    print(tb.get_string(sortby='comment'))
 
 
 def output_html(release, projects, include_obs):
     """adjust the comment color a big with an ugly hack"""
     from lxml import html
     tb = _pretty_table(release, projects, include_obs)
-    s = tb.get_html_string(sortby='name')
+    s = tb.get_html_string(sortby='comment')
     tree = html.document_fromstring(s)
     tab = tree.cssselect('table')
     tab[0].attrib['style'] = 'border-collapse: collapse;'
@@ -207,13 +207,13 @@ def output_html(release, projects, include_obs):
         t.attrib['style'] = 'border-bottom:1pt solid black;'
     tds = tree.cssselect('td')
     for t in tds:
-        if t.text_content() == 'needs packaging':
+        if t.text_content() == 'unpackaged':
             t.attrib['style'] = 'background-color:yellow'
         elif t.text_content() == 'needs upgrade':
             t.attrib['style'] = 'background-color:LightYellow'
         elif t.text_content() == ('needs downgrade' or 'needs downgrade (uc)'):
             t.attrib['style'] = 'background-color:red'
-        elif t.text_content() == 'perfect':
+        elif t.text_content() == 'ok':
             t.attrib['style'] = 'background-color:green'
     print(html.tostring(tree))
 
