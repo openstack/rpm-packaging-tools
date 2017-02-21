@@ -77,7 +77,7 @@ def process_args():
 def find_highest_release_version(releases):
     """get a list of dicts with a version key and find the highest version
     using PEP440 to compare the different versions"""
-    return max(version.parse(r['version']) for r in releases)
+    return max(version.parse(str(r['version'])) for r in releases)
 
 
 def _rpm_split_filename(filename):
@@ -278,13 +278,19 @@ def main():
     # git dir
     releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
                                      args['release'])
-    for yaml_file in os.listdir(releases_yaml_dir):
-        project_name = re.sub('\.ya?ml$', '', yaml_file)
+    releases_indep_yaml_dir = os.path.join(args['releases-git-dir'],
+                                           'deliverables', '_independent')
+    yaml_files = [os.path.join(releases_yaml_dir, f)
+                  for f in os.listdir(releases_yaml_dir)]
+    yaml_files += [os.path.join(releases_indep_yaml_dir, f)
+                   for f in os.listdir(releases_indep_yaml_dir)]
+    for yaml_file in yaml_files:
+        project_name = re.sub('\.ya?ml$', '', os.path.basename(yaml_file))
         # skip projects if include list is given
         if len(args['include_projects']) and \
            project_name not in args['include_projects']:
             continue
-        with open(os.path.join(releases_yaml_dir, yaml_file)) as f:
+        with open(yaml_file) as f:
             data = yaml.load(f.read())
             if 'releases' not in data:
                 # there might be yaml files without any releases
