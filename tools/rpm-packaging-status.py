@@ -34,14 +34,6 @@ CURRENT_MASTER = 'pike'
 # the host where to query for open reviews
 GERRIT_HOST = 'https://review.openstack.org'
 
-# do some project name corrections if needed
-projects_mapping = {
-    "glance-store": "glance_store",
-    "keystoneauth": "keystoneauth1",
-    "python-aodhclient": "aodhclient"
-}
-
-
 V = namedtuple('V', ['release', 'upper_constraints', 'rpm_packaging_pkg',
                      'reviews', 'obs_published'])
 
@@ -77,7 +69,7 @@ def process_args():
 def find_highest_release_version(releases):
     """get a list of dicts with a version key and find the highest version
     using PEP440 to compare the different versions"""
-    return max(version.parse(str(r['version'])) for r in releases)
+    return max(releases, key=lambda x: version.parse(str(x['version'])))
 
 
 def _rpm_split_filename(filename):
@@ -296,13 +288,9 @@ def main():
                 # there might be yaml files without any releases
                 continue
             v_release = find_highest_release_version(data['releases'])
-
-        # do some mapping if pkg name is different to the name from
-        # release repo
-        if project_name in projects_mapping:
-            project_name_pkg = projects_mapping[project_name]
-        else:
-            project_name_pkg = project_name
+        # use tarball-base name if available
+        project_name_pkg = v_release['projects'][0].get('tarball-base',
+                                                        project_name)
 
         # get version from upper-constraints.txt
         if project_name in upper_constraints:
@@ -329,7 +317,7 @@ def main():
             project_reviews = []
 
         # add both versions to the project dict
-        projects[project_name] = V(v_release,
+        projects[project_name] = V(version.parse(v_release['version']),
                                    v_upper_constraints,
                                    v_rpm_packaging_pkg,
                                    project_reviews,
