@@ -130,8 +130,8 @@ def find_rpm_packaging_pkg_version(pkg_project_spec):
             for l in f:
                 # if the template variable 'upstream_version' is set, use that
                 m = re.search(
-                    "{%\s*set upstream_version\s*=\s*'(?P<version>.*)'\s*%}$",
-                    l)
+                    "{%\s*set upstream_version\s*=\s*(?:upstream_version\()?"
+                    "'(?P<version>.*)'(?:\))?\s*%}$", l)
                 if m:
                     return version.parse(m.group('version'))
                 # check the Version field
