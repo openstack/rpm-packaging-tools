@@ -29,7 +29,7 @@ import yaml
 import json
 
 # the current 'in development' release
-CURRENT_MASTER = 'pike'
+CURRENT_MASTER = 'queens'
 
 # the host where to query for open reviews
 GERRIT_HOST = 'https://review.openstack.org'
