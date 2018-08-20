@@ -272,10 +272,10 @@ def main():
                                      args['release'])
     releases_indep_yaml_dir = os.path.join(args['releases-git-dir'],
                                            'deliverables', '_independent')
-    yaml_files = [os.path.join(releases_yaml_dir, f)
-                  for f in os.listdir(releases_yaml_dir)]
-    yaml_files += [os.path.join(releases_indep_yaml_dir, f)
-                   for f in os.listdir(releases_indep_yaml_dir)]
+    yaml_files = [os.path.join(releases_indep_yaml_dir, f)
+                  for f in os.listdir(releases_indep_yaml_dir)]
+    yaml_files += [os.path.join(releases_yaml_dir, f)
+                   for f in os.listdir(releases_yaml_dir)]
     for yaml_file in yaml_files:
         project_name = re.sub('\.ya?ml$', '', os.path.basename(yaml_file))
         # skip projects if include list is given
