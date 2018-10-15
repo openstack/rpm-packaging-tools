@@ -163,7 +163,8 @@ def _pretty_table(release, projects, include_obs):
         elif x.rpm_packaging_pkg < x.release:
             comment = 'needs upgrade'
         elif x.rpm_packaging_pkg == x.release:
-            if x.release > x.upper_constraints:
+            if x.upper_constraints != '-' and \
+                    x.release > version.parse(x.upper_constraints):
                 comment = 'needs downgrade (u-c)'
             comment = 'ok'
         elif x.rpm_packaging_pkg > x.release:
