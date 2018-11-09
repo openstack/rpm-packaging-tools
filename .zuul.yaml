@@ -1,7 +1,26 @@
+- job:
+    name: rpm-packaging-status
+    parent: tox
+    success-url: html/
+    post-run: playbooks/rpm-packaging-status/post.yaml
+    vars:
+      tox_envlist: status
+      tox_environment:
+        RELEASES: "{{ ansible_user_dir }}/{{ zuul.projects['git.openstack.org/openstack/releases'].src_dir }}"
+        RPM_PACKAGING: "{{ ansible_user_dir }}/{{ zuul.projects['git.openstack.org/openstack/rpm-packaging'].src_dir }}"
+        REQUIREMENTS: "{{ ansible_user_dir}}/{{ zuul.projects['git.openstack.org/openstack/requirements'].src_dir }}"
+        RELEASE: stein
+    required-projects:
+      - openstack/releases
+      - openstack/rpm-packaging
+      - openstack/requirements
+
 - project:
     check:
       jobs:
         - openstack-tox-pep8
+        - rpm-packaging-status
     gate:
       jobs:
         - openstack-tox-pep8
+        - rpm-packaging-status

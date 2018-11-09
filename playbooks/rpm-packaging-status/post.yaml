@@ -1,0 +1,8 @@
+- hosts: all
+  tasks:
+    - name: Collect build html
+      synchronize:
+        dest: "{{ zuul.executor.log_root }}"
+        mode: pull
+        src: "{{ zuul.project.src_dir }}/html"
+        verify_host: true
