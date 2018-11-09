@@ -3,7 +3,9 @@
 # process, which may cause wedges in the gate later.
 flake8<2.6.0,>=2.5.4 # MIT
 packaging  # Apache-2.0
+lxml!=3.7.0  # BSD
 PrettyTable<0.8  # BSD
 PyYAML  # MIT
 requests # Apache-2.0
 pymod2pkg # Apache-2.0
+cssselect # BSD
