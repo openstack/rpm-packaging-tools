@@ -137,6 +137,8 @@ def find_rpm_packaging_pkg_version(pkg_project_spec):
                 # check the Version field
                 m = re.search('^Version:\s*(?P<version>.*)\s*$', l)
                 if m:
+                    if m.group('version') == '{{ py2rpmversion() }}':
+                        return 'version unset'
                     return version.parse(m.group('version'))
         # no version in spec found
         print('ERROR: no version in %s found' % pkg_project_spec)
@@ -158,7 +160,9 @@ def _pretty_table(release, projects, include_obs):
     tb.field_names = fn
 
     for p_name, x in projects.items():
-        if x.rpm_packaging_pkg == version.parse('0'):
+        if x.rpm_packaging_pkg == 'version unset':
+            comment = 'ok'
+        elif x.rpm_packaging_pkg == version.parse('0'):
             comment = 'unpackaged'
         elif x.rpm_packaging_pkg < x.release:
             comment = 'needs upgrade'
