@@ -38,32 +38,113 @@ V = namedtuple('V', ['release', 'upper_constraints', 'rpm_packaging_pkg',
                      'reviews', 'obs_published'])
 
 
+def _process_status(args=None):
+    projects = {}
+
+    upper_constraints = read_upper_constraints(
+        os.path.join(args['requirements-git-dir'], 'upper-constraints.txt'))
+
+    # open reviews for the given release
+    open_reviews = _gerrit_open_reviews_per_file(args['release'])
+
+    # directory which contains all yaml files from the openstack/release
+    # git dir
+    releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
+                                     args['release'])
+    releases_indep_yaml_dir = os.path.join(args['releases-git-dir'],
+                                           'deliverables', '_independent')
+    yaml_files = [os.path.join(releases_indep_yaml_dir, f)
+                  for f in os.listdir(releases_indep_yaml_dir)]
+    yaml_files += [os.path.join(releases_yaml_dir, f)
+                   for f in os.listdir(releases_yaml_dir)]
+    for yaml_file in yaml_files:
+        project_name = re.sub('\.ya?ml$', '', os.path.basename(yaml_file))
+        # skip projects if include list is given
+        if len(args['include_projects']) and \
+           project_name not in args['include_projects']:
+            continue
+        with open(yaml_file) as f:
+            data = yaml.load(f.read())
+            if 'releases' not in data:
+                # there might be yaml files without any releases
+                continue
+            v_release = find_highest_release_version(data['releases'])
+        # use tarball-base name if available
+        project_name_pkg = v_release['projects'][0].get('tarball-base',
+                                                        project_name)
+
+        # get version from upper-constraints.txt
+        if project_name in upper_constraints:
+            v_upper_constraints = upper_constraints[project_name]
+        else:
+            v_upper_constraints = '-'
+
+        # path to the corresponding .spec.j2 file
+        rpm_packaging_pkg_project_spec = os.path.join(
+            args['rpm-packaging-git-dir'],
+            'openstack', project_name_pkg,
+            '%s.spec.j2' % project_name_pkg)
+        v_rpm_packaging_pkg = find_rpm_packaging_pkg_version(
+            rpm_packaging_pkg_project_spec)
+
+        # version from build service published file
+        v_obs_published = find_openbuildservice_pkg_version(
+            args['obs_published_xml'], project_name)
+
+        # reviews for the given project
+        if project_name in open_reviews:
+            project_reviews = open_reviews[project_name]
+        else:
+            project_reviews = []
+
+        # add both versions to the project dict
+        projects[project_name] = V(version.parse(v_release['version']),
+                                   v_upper_constraints,
+                                   v_rpm_packaging_pkg,
+                                   project_reviews,
+                                   v_obs_published)
+
+    include_obs = args['obs_published_xml']
+    if args['format'] == 'text':
+        output_text(args['release'], projects, include_obs)
+    elif args['format'] == 'html':
+        output_html(args['release'], projects, include_obs)
+
+
 def process_args():
     parser = argparse.ArgumentParser(
         description='Compare rpm-packaging with OpenStack releases')
-    parser.add_argument('releases-git-dir',
-                        help='Base directory of the openstack/releases '
-                        'git repo', default='releases')
-    parser.add_argument('rpm-packaging-git-dir',
-                        help='Base directory of the openstack/rpm-packaging '
-                        'git repo', default='rpm-packaging')
-    parser.add_argument('requirements-git-dir',
-                        help='Base directory of the openstack/requirements '
-                        'git repo', default='requirements')
-    parser.add_argument('--obs-published-xml',
-                        help='path to a published xml file from the '
-                        'openbuildservice')
-    parser.add_argument('release',
-                        help='name of the release. I.e. "mitaka"',
-                        default='mitaka')
-    parser.add_argument('--include-projects', nargs='*',
-                        metavar='project-name', default=[],
-                        help='If non-empty, only the given '
-                        'projects will be checked. default: %(default)s')
-    parser.add_argument('--format',
-                        help='output format', choices=('text', 'html'),
-                        default='text')
-    return vars(parser.parse_args())
+    subparsers = parser.add_subparsers(help='sub-command help')
+    # subparsers - status
+    parser_status = subparsers.add_parser('status', help='status help')
+    parser_status.add_argument('releases-git-dir',
+                               help='Base directory of the openstack/releases '
+                               'git repo', default='releases')
+    parser_status.add_argument('rpm-packaging-git-dir',
+                               help='Base directory of the '
+                               'openstack/rpm-packaging git repo',
+                               default='rpm-packaging')
+    parser_status.add_argument('requirements-git-dir',
+                               help='Base directory of the '
+                               'openstack/requirements git repo',
+                               default='requirements')
+    parser_status.add_argument('--obs-published-xml',
+                               help='path to a published xml file from the '
+                               'openbuildservice')
+    parser_status.add_argument('release',
+                               help='name of the release. I.e. "mitaka"',
+                               default='mitaka')
+    parser_status.add_argument('--include-projects', nargs='*',
+                               metavar='project-name', default=[],
+                               help='If non-empty, only the given '
+                               'projects will be checked. '
+                               'default: %(default)s')
+    parser_status.add_argument('--format',
+                               help='output format', choices=('text', 'html'),
+                               default='text')
+    parser_status.set_defaults(func=_process_status)
+    args = parser.parse_args()
+    args.func(vars(args))
 
 
 def find_highest_release_version(releases):
@@ -261,79 +342,7 @@ def _gerrit_open_reviews_per_file(release):
 
 
 def main():
-    args = process_args()
-
-    projects = {}
-
-    upper_constraints = read_upper_constraints(
-        os.path.join(args['requirements-git-dir'], 'upper-constraints.txt'))
-
-    # open reviews for the given release
-    open_reviews = _gerrit_open_reviews_per_file(args['release'])
-
-    # directory which contains all yaml files from the openstack/release
-    # git dir
-    releases_yaml_dir = os.path.join(args['releases-git-dir'], 'deliverables',
-                                     args['release'])
-    releases_indep_yaml_dir = os.path.join(args['releases-git-dir'],
-                                           'deliverables', '_independent')
-    yaml_files = [os.path.join(releases_indep_yaml_dir, f)
-                  for f in os.listdir(releases_indep_yaml_dir)]
-    yaml_files += [os.path.join(releases_yaml_dir, f)
-                   for f in os.listdir(releases_yaml_dir)]
-    for yaml_file in yaml_files:
-        project_name = re.sub('\.ya?ml$', '', os.path.basename(yaml_file))
-        # skip projects if include list is given
-        if len(args['include_projects']) and \
-           project_name not in args['include_projects']:
-            continue
-        with open(yaml_file) as f:
-            data = yaml.load(f.read())
-            if 'releases' not in data:
-                # there might be yaml files without any releases
-                continue
-            v_release = find_highest_release_version(data['releases'])
-        # use tarball-base name if available
-        project_name_pkg = v_release['projects'][0].get('tarball-base',
-                                                        project_name)
-
-        # get version from upper-constraints.txt
-        if project_name in upper_constraints:
-            v_upper_constraints = upper_constraints[project_name]
-        else:
-            v_upper_constraints = '-'
-
-        # path to the corresponding .spec.j2 file
-        rpm_packaging_pkg_project_spec = os.path.join(
-            args['rpm-packaging-git-dir'],
-            'openstack', project_name_pkg,
-            '%s.spec.j2' % project_name_pkg)
-        v_rpm_packaging_pkg = find_rpm_packaging_pkg_version(
-            rpm_packaging_pkg_project_spec)
-
-        # version from build service published file
-        v_obs_published = find_openbuildservice_pkg_version(
-            args['obs_published_xml'], project_name)
-
-        # reviews for the given project
-        if project_name in open_reviews:
-            project_reviews = open_reviews[project_name]
-        else:
-            project_reviews = []
-
-        # add both versions to the project dict
-        projects[project_name] = V(version.parse(v_release['version']),
-                                   v_upper_constraints,
-                                   v_rpm_packaging_pkg,
-                                   project_reviews,
-                                   v_obs_published)
-
-    include_obs = args['obs_published_xml']
-    if args['format'] == 'text':
-        output_text(args['release'], projects, include_obs)
-    elif args['format'] == 'html':
-        output_html(args['release'], projects, include_obs)
-
+    process_args()
     return 0
 
 
