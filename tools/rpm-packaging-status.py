@@ -65,7 +65,7 @@ def _process_status(args=None):
             continue
         with open(yaml_file) as f:
             data = yaml.load(f.read())
-            if 'releases' not in data:
+            if 'releases' not in data or not data['releases']:
                 # there might be yaml files without any releases
                 continue
             v_release = find_highest_release_version(data['releases'])
