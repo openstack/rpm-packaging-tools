@@ -32,7 +32,7 @@ import json
 CURRENT_MASTER = 'ussuri'
 
 # the host where to query for open reviews
-GERRIT_HOST = 'https://review.openstack.org'
+GERRIT_HOST = 'https://review.opendev.org'
 
 V = namedtuple('V', ['release', 'upper_constraints', 'rpm_packaging_pkg',
                      'reviews', 'obs_published'])
