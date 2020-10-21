@@ -55,7 +55,7 @@ def _process_status(args=None):
     yaml_files += [os.path.join(releases_yaml_dir, f)
                    for f in os.listdir(releases_yaml_dir)]
     for yaml_file in yaml_files:
-        project_name = re.sub('\.ya?ml$', '', os.path.basename(yaml_file))
+        project_name = re.sub(r'\.ya?ml$', '', os.path.basename(yaml_file))
         # skip projects if include list is given
         if len(args['include_projects']) and \
            project_name not in args['include_projects']:
@@ -205,15 +205,15 @@ def find_rpm_packaging_pkg_version(pkg_project_spec):
     """get a spec.j2 template and get the version"""
     if os.path.exists(pkg_project_spec):
         with open(pkg_project_spec) as f:
-            for l in f:
+            for line in f:
                 # if the template variable 'upstream_version' is set, use that
                 m = re.search(
-                    "{%\s*set upstream_version\s*=\s*(?:upstream_version\()?"
-                    "'(?P<version>.*)'(?:\))?\s*%}$", l)
+                    r"{%\s*set upstream_version\s*=\s*(?:upstream_version\()?"
+                    r"'(?P<version>.*)'(?:\))?\s*%}$", line)
                 if m:
                     return version.parse(m.group('version'))
                 # check the Version field
-                m = re.search('^Version:\s*(?P<version>.*)\s*$', l)
+                m = re.search(r'^Version:\s*(?P<version>.*)\s*$', line)
                 if m:
                     if m.group('version') == '{{ py2rpmversion() }}':
                         return 'version unset'
@@ -296,10 +296,10 @@ def output_html(release, projects, include_obs):
 def read_upper_constraints(filename):
     uc = dict()
     with open(filename) as f:
-        for l in f.readlines():
+        for line in f.readlines():
             # ignore markers for now
-            l = l.split(';')[0]
-            r = Requirement(l)
+            line = line.split(';')[0]
+            r = Requirement(line)
             for s in r.specifier:
                 uc[r.name] = s.version
                 # there is only a single version in upper constraints
