@@ -26,7 +26,7 @@ import yaml
 import json
 
 # the current 'in development' release
-CURRENT_MASTER = 'wallaby'
+CURRENT_MASTER = 'xena'
 
 # the host where to query for open reviews
 GERRIT_HOST = 'https://review.opendev.org'
